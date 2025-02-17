@@ -11,7 +11,7 @@ plot_survival <- function(
     plot_title = "Cumulative Incidence",
     xlab_str = "Time (years)",
     ylab_str = "Survival Probability",
-    fun_str  = "event",
+    fun_str  = "event",                # "event" = cumulative incidence, "cumhaz" = cumulative hazard, "pct" = survival probability
     ylim_vec = c(0, 0.02),
     pval_arg = TRUE,                   # Set pval = TRUE to show computed log-rank p-value and maybe it would not show when fun_str == "event"
     pval_txt = NULL,                   # Alternatively, provide a custom p-value text, e.g. "Log-rank Test <0.001"
