@@ -75,3 +75,70 @@ plot_list <- mget(ls(pattern = "^p\\d+$")) # in this case, you should sure that 
 plot_combined <- lapply(plot_list, function(x) x$plot)
 plot_all <- do.call(grid.arrange, c(plot_combined), ncol = 2) # ncol can be change any number >=1, also nrow.
 ggsave("name.png", plot_all, width = 10, height = 10) # Commonly each png should be width=5 and height=5.
+
+
+# 2025/3/3 update
+# When containing two time variable: could set two time
+plot_survival <- function(
+    var,
+    data,
+    palette_col = c("#FEAC5E","#6441A5"), # default
+    legend_title = "Variable",
+    plot_title = "Cumulative Incidence",
+    xlab_str = "Time (years)",
+    ylab_str = "Survival Probability",
+    fun_str  = "event",                # "event" = cumulative incidence, "cumhaz" = cumulative hazard, "pct" = survival probability
+    ylim_vec = c(0, 0.02),
+    pval_arg = TRUE,                   # Set pval = TRUE to show computed log-rank p-value and maybe it would not show when fun_str == "event"
+    pval_txt = NULL,                   # Alternatively, provide a custom p-value text, e.g. "Log-rank Test <0.001"
+    conf_int = TRUE,
+    run_survdiff = TRUE,              # It would run diffsurv if True
+    fun_type = "KM",  # fh = Fleming-Harrington, KM = Kaplan-Meier
+    time1 = "time",                   # Time variable
+    time2 = NULL,
+    event = "event"                   # Event variable
+) {
+
+  # Change to factor if the var isn't transfered to factor
+  if (!is.factor(data[[var]])) {
+    data[[var]] <- as.factor(data[[var]])
+  }
+
+# Create a survival formula based on input variable
+  if (!is.null(time2)) {
+    form_surv <- as.formula(paste(paste("Surv(", time1, ",", time2, ",", event, ")~"), var))
+  } else {
+    form_surv <- as.formula(paste(paste("Surv(", time1, ",", event, ")~"), var))
+  }
+# Fit survival curves
+  surv_obj <- surv_fit(form_surv, data = data, type = fun_type)
+  # It should be surv_fit but not survfit, or it would meet with error
+  
+# If the parameter of run_survdiff == T, it would run.
+  if (run_survdiff) {
+    test_result <- survdiff(form_surv, data = data)
+    print(test_result)
+  }
+  
+# Prepare labels from the factor levels of the variable
+  labs <- levels(data[[var]])
+
+# Call ggsurvplot
+  plot <- ggsurvplot(
+    fit           = surv_obj,
+    data          = data,
+    conf.int      = conf_int,
+    pval          = if (!is.null(pval_txt)) pval_txt else pval_arg, 
+    legend.title  = legend_title,
+    legend.labs   = labs,
+    palette       = palette_col,
+    title         = plot_title,
+    xlab          = xlab_str,
+    ylab          = ylab_str,
+    fun           = fun_str,
+    ylim          = ylim_vec,
+    censor        = FALSE,
+    conf.int.style = "step"
+  )
+  return(plot)
+}
