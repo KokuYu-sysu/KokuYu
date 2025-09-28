@@ -1,3 +1,9 @@
+#' @param data : should be class data.frame
+#' @param event: the outcome which is interest
+#' @time time
+#' @strata : categorical variables
+#' @unit
+
 rate_calculator <- function(data, event, time, strata = NULL, unit = 100000) {
   if (!is.data.frame(data)) {
     stop("Error: 'data' must be a data.frame.")
