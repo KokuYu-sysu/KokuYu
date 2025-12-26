@@ -1,0 +1,105 @@
+library(stringr)
+library(ggplot2)
+library(forestploter)
+library(grid)
+library(dplyr)
+extract_hr_values <- function(hr_string) {
+  estimate <- as.numeric(str_extract(hr_string, "\\d+\\.\\d+"))
+  lower_ci <- as.numeric(str_extract(hr_string, "(?<=\\()\\d+\\.\\d+"))
+  upper_ci <- as.numeric(str_extract(hr_string, "(?<=, )\\d+\\.\\d+"))
+  return(c(estimate, lower_ci, upper_ci))
+}
+llp_result <- read.csv("llp_results.csv")
+data <- data.frame(
+  model = llp_result$variables,
+  hr_inc = llp_result$HR_inc,
+  rhr = llp_result$RHR
+)
+columns_to_extract <- c(2:3)
+for (col_idx in columns_to_extract) {
+  col_name <- names(data)[col_idx]
+  
+  # Initialize vectors to store extracted values
+  estimates <- numeric(nrow(data))
+  lower_cis <- numeric(nrow(data))
+  upper_cis <- numeric(nrow(data))
+  
+  # Extract values for each row
+  for (i in 1:nrow(data)) {
+    hr_string <- data[i, col_idx]
+    if (!is.na(hr_string)) {
+      extracted <- extract_hr_values(hr_string)
+      estimates[i] <- extracted[1]
+      lower_cis[i] <- extracted[2]
+      upper_cis[i] <- extracted[3]
+    } else {
+      estimates[i] <- NA
+      lower_cis[i] <- NA
+      upper_cis[i] <- NA
+    }
+  }
+  data[[paste0(col_name, "_est")]] <- estimates
+  data[[paste0(col_name, "_low")]] <- lower_cis
+  data[[paste0(col_name, "_upp")]] <- upper_cis
+}
+data$`Outcome_HR` <- paste(rep(" ", 20), collapse = " ")
+data$`RHR` <- paste(rep(" ", 20), collapse = " ")
+data[is.na(data)] <- " "
+tm3 <- forest_theme(base_size = 10,
+                   refline_col = c("black", "black"),
+                   legend_value = c("Incidence", "Competing Events"),
+                #    footnote_gp = gpar(col = "#0000ffab"),
+                   ci_col = c("#58abef", "#ef58ce"),
+                   core = list(bg_params = list(fill = c("#ffffffff")),
+                   vert_line_col = c("black","#ffdd00"))
+                   )
+forest_plot <- forest(
+  data[, c(1, 2, 10, 3, 11)],
+  est = list(as.numeric(data$hr_inc_est),
+              as.numeric(data$rhr_est)),
+  lower = list(as.numeric(data$hr_inc_low),
+               as.numeric(data$rhr_low)),
+  upper = list(as.numeric(data$hr_inc_upp),
+               as.numeric(data$rhr_upp)),
+  ci_column = c(3, 5),
+  vert_line = list(1, 2),
+  ref_line = c(1, 1),
+  xlim = list(c(0, 6), c(0, 5)),
+  ticks_at = list(c(0, 1, 2, 4, 6), c(0, 1, 2, 3, 5)),
+  xlab = list("Hazard Ratio (95% CI)", "Relative Hazard Ratio (95% CI)"),
+  theme = tm3
+)
+forest_plot <- edit_plot(forest_plot,
+                         col = 5,
+                         row = c(1: nrow(data)),
+                         which = "ci",
+                         gp = gpar(col = "#ef5858", fill = "#ef5858")
+                         )
+forest_plot <- edit_plot(forest_plot,
+                         col = 3,
+                         row = c(seq(3, 9, by = 2),
+                                 seq(12, 22, by = 2),
+                                 seq(25, 31, by = 2),
+                                 34),
+                         which = "ci",
+                         gp = gpar(col = "#ef58ce", fill = "#ef58ce")
+                         )
+
+forest_plot <- edit_plot(forest_plot,
+                         col = 1,
+                         row = c(1, 10, 23, 32),
+                         gp = gpar(fontface = "bold")
+                         )
+forest_plot <- edit_plot(forest_plot,
+                         col = 1: 5,
+                         row = c(1, 4:5, 8:9,
+                                 11:12, 15:16, 19:20,
+                                 23, 26:27, 30:31, 33:34),
+                         which = "background",
+                         gp = gpar(fill = "#f0f8ff")
+                         )
+forest_plot <- add_border(forest_plot, 
+                         part = "header", 
+                         row = 1,
+                         gp = gpar(lwd = 1))
+ggsave("llp_plot_20251224.pdf", forest_plot, width = 10, height = 12)
